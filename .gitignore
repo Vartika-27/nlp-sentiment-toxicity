@@ -15,8 +15,8 @@ data/raw/
 data/processed/
 
 # Model files (important later)
-models/
-
+models/*.pt
+models/*.bin
 # Logs
 *.log
 
