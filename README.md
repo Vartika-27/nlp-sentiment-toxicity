@@ -52,35 +52,24 @@ Text Preprocessing
 ## 🔍 Key Features
 
 ✨ Multi-layer NLP pipeline
-✨ Combines **rule-based + ML models**
-✨ Generates **interpretable insights**
-✨ Modular and scalable design
-✨ Demo-ready system (Streamlit)
+✨ **Custom Toggle:** Dynamically switch between **Classic Baseline Models** and **State-of-the-Art Hugging Face Transformers**. 
+✨ Generates **interpretable insights** based on emotional combinations.
+✨ Modular and scalable codebase design.
+✨ Highly-aesthetic, interactive **Streamlit Dashboard**.
 
 ---
 
 ## 🧠 Model Details
 
 ### 🔹 Sentiment Analysis
-
-* Model: **VADER**
-* Type: Rule-based
-* Output:
-
-  * Positive
-  * Negative
-  * Neutral
-
----
+Users can toggle between two models in the UI:
+1. **Classic Baseline:** VADER (Valence Aware Dictionary and sEntiment Reasoner) - Rule-based approach.
+2. **Advanced Transformer:** `cardiffnlp/twitter-roberta-base-sentiment` - Deep learning approach for nuanced emotional detection.
 
 ### 🔹 Toxicity Detection
-
-* Model: **TF-IDF + Logistic Regression**
-* Type: Supervised ML
-* Output:
-
-  * Toxic
-  * Non-Toxic
+Users can toggle between two models:
+1. **Classic Baseline:** TF-IDF + Logistic Regression - Supervised ML trained on custom seed text.
+2. **Advanced Transformer:** `martin-ha/toxic-comment-model` (Toxic-BERT) - State-of-the-Art binary sequence classification.
 
 ---
 
@@ -98,7 +87,7 @@ Text Preprocessing
 
 ## 📁 Project Structure
 
-```
+```text
 nlp-sentiment-toxicity/
 │
 ├── data/
@@ -108,17 +97,19 @@ nlp-sentiment-toxicity/
 │   ├── layers/
 │   └── utils/
 │
+├── tests/
+│   ├── test_pipeline.py
+│   ├── test_sentiment.py
+│   ├── test_toxicity.py
+│   └── test_combined.py
+│
 ├── app/
+│   └── app.py
 ├── reports/
 ├── results/
 │
-├── test_pipeline.py
-├── test_sentiment.py
-├── test_toxicity.py
-├── test_combined.py
-│
 ├── README.md
-├── requirements.txt
+├── requirement.txt
 └── .gitignore
 ```
 
@@ -139,7 +130,10 @@ cd nlp-sentiment-toxicity
 
 ```bash
 python -m venv venv
+# On Windows:
 venv\Scripts\activate
+# On Mac/Linux:
+source venv/bin/activate
 ```
 
 ---
@@ -147,23 +141,27 @@ venv\Scripts\activate
 ### 3️⃣ Install Dependencies
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirement.txt
 ```
 
 ---
 
-## 🧪 Run Components
+## 🧪 Run Tests
+
+Our pipeline is constantly tested for regressions.
 
 ```bash
-python test_pipeline.py
-python test_sentiment.py
-python test_toxicity.py
-python test_combined.py
+python tests/test_pipeline.py
+python tests/test_sentiment.py
+python tests/test_toxicity.py
+python tests/test_combined.py
 ```
 
 ---
 
 ## 🖥️ Run Demo App
+
+Spin up the interactive Streamlit dashboard:
 
 ```bash
 streamlit run app/app.py
@@ -175,13 +173,13 @@ streamlit run app/app.py
 
 **Input:**
 
-```
+```text
 Wow great job... idiot
 ```
 
 **Output:**
 
-```
+```text
 Sentiment: Positive  
 Toxicity: Toxic  
 Insight: Sarcastic / Manipulative positivity
@@ -191,35 +189,34 @@ Insight: Sarcastic / Manipulative positivity
 
 ## 📈 Future Scope
 
-* Fine-tune **BERT / DistilBERT**
-* Train on large-scale datasets (Jigsaw, SST-2)
-* Improve sarcasm detection
-* Add multilingual support
-* Deploy as REST API
+* Train baseline models on large-scale datasets (Jigsaw, SST-2) instead of dummy data.
+* Improve sarcasm detection edge cases.
+* Add multilingual support.
+* Deploy as REST API for independent microservices.
 
 ---
 
 ## ⚠️ Limitations
 
-* VADER struggles with nuanced sarcasm
-* Logistic Regression depends on feature quality
-* Small dataset → lower confidence scores
+* VADER struggles with nuanced sarcasm compared to the Transformer option.
+* Running Hugging Face Transformers might be slightly slower strictly on CPU environments.
+* Baseline Logistic Regression depends heavily on TF-IDF feature quality.
 
 ---
 
 ## 🎯 Key Takeaways
 
-✔ Multi-layer analysis instead of single prediction
-✔ Combines emotion + intent
-✔ Produces human-interpretable insights
-✔ Strong foundation for advanced NLP systems
+✔ Multi-layer analysis instead of single prediction.
+✔ Combines emotion + intent dynamically.
+✔ Produces human-interpretable insights.
+✔ Now boasts an extensible architecture accommodating both Baseline and SOTA Transformer models.
 
 ---
 
 ## 👩‍💻 Author
 
-Developed as part of a **B.Tech Project-Based Learning (PBL)** initiative
-Focused on **NLP + Cybersecurity Applications**
+Developed as part of a **B.Tech Project-Based Learning (PBL)** initiative.
+Focused on **NLP + Cybersecurity Applications**.
 
 ---
 
