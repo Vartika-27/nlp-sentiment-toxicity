@@ -12,7 +12,7 @@ import streamlit as st
 st.set_page_config(
     page_title="NLP Insight Engine",
     page_icon="🔬",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed",
 )
 
@@ -276,6 +276,86 @@ def _load_toxicity_model():
 
 _load_toxicity_model()
 
+# ── Helper Function: Render Analysis Results ──────────────────────────────────
+def render_analysis_results(sent_result, tox_result, insight_result, cleaned, model_choice_labels):
+    st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
+    st.markdown(
+        '<p class="card-label" style="margin-bottom:1rem;">Analysis results</p>',
+        unsafe_allow_html=True,
+    )
+
+    col_sent, col_tox = st.columns(2, gap="medium")
+
+    sent_css = {
+        POSITIVE: "val-positive",
+        NEGATIVE: "val-negative",
+        NEUTRAL:  "val-neutral",
+    }.get(sent_result.label, "val-neutral")
+
+    sent_bar_pct = int((sent_result.score + 1) / 2 * 100)
+    sent_sign    = "+" if sent_result.score >= 0 else ""
+
+    with col_sent:
+        st.markdown(
+            f'''
+            <div class="result-card">
+                <div class="result-card-label">😶 Sentiment</div>
+                <div class="result-value {sent_css}">{sent_result.label}</div>
+                <div class="result-score">compound {sent_sign}{sent_result.score:.4f}</div>
+            </div>
+            ''',
+            unsafe_allow_html=True,
+        )
+        st.progress(sent_bar_pct)
+
+    tox_css = "val-toxic" if tox_result.label == TOXIC else "val-nontoxic"
+    tox_bar_pct = int(tox_result.probability * 100)
+
+    with col_tox:
+        st.markdown(
+            f'''
+            <div class="result-card">
+                <div class="result-card-label">☣️ Toxicity</div>
+                <div class="result-value {tox_css}">{tox_result.label}</div>
+                <div class="result-score">P(toxic) {tox_result.probability:.4f}</div>
+            </div>
+            ''',
+            unsafe_allow_html=True,
+        )
+        st.progress(tox_bar_pct)
+
+    st.markdown(
+        f'''
+        <div class="insight-block">
+            <span class="insight-tag">{insight_result.tag}</span>
+            <div class="insight-text">💡 {insight_result.insight}</div>
+        </div>
+        ''',
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("VIEW PREPROCESSED TEXT", expanded=False):
+        display_cleaned = cleaned if cleaned else "⚠️ Nothing remained after preprocessing."
+        st.markdown(
+            f'<div class="clean-text-box">{display_cleaned}</div>',
+            unsafe_allow_html=True,
+        )
+
+    with st.expander("VIEW RAW SCORES", expanded=False):
+        import pandas as pd
+        score_df = pd.DataFrame(
+            {
+                "Module": model_choice_labels,
+                "Predicted Label": [sent_result.label, tox_result.label],
+                "Score": [
+                    f"{sent_result.score:+.4f} (compound)",
+                    f"{tox_result.probability:.4f} P(toxic)",
+                ],
+            }
+        )
+        st.dataframe(score_df, use_container_width=True, hide_index=True)
+
+
 # ── Hero ────────────────────────────────────────────────────────────────────
 st.markdown(
     """
@@ -292,146 +372,97 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Input card ──────────────────────────────────────────────────────────────
-st.markdown('<div class="input-card">', unsafe_allow_html=True)
-st.markdown('<div class="card-label">Model Engine</div>', unsafe_allow_html=True)
-model_choice = st.radio(
-    "Choose Prediction Backend:",
-    ["Baseline (VADER + LogReg)", "Advanced (Hugging Face Transformers)"],
-    horizontal=True,
-    label_visibility="collapsed"
-)
+tab_single, tab_compare = st.tabs(["Single Analysis", "Model Comparison"])
 
-st.markdown('<div class="card-label" style="margin-top: 1rem;">Input text</div>', unsafe_allow_html=True)
+with tab_single:
+    st.markdown('<div class="input-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-label">Model Engine</div>', unsafe_allow_html=True)
+    model_choice = st.radio(
+        "Choose Prediction Backend:",
+        ["Baseline (VADER + LogReg)", "Advanced (Hugging Face Transformers)"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="single_radio"
+    )
 
-user_text = st.text_area(
-    label="input_text",
-    label_visibility="collapsed",
-    placeholder='e.g. "Your product is absolutely fantastic - just kidding, it\'s terrible."',
-    height=130,
-    key="user_input",
-)
+    st.markdown('<div class="card-label" style="margin-top: 1rem;">Input text</div>', unsafe_allow_html=True)
 
-analyze_clicked = st.button("⚡ Analyse Text", use_container_width=True)
-st.markdown("</div>", unsafe_allow_html=True)
+    user_text_single = st.text_area(
+        label="input_text_single",
+        label_visibility="collapsed",
+        placeholder='e.g. "Your product is absolutely fantastic - just kidding, it\'s terrible."',
+        height=130,
+        key="user_input_single",
+    )
 
-# ── Analysis pipeline ───────────────────────────────────────────────────────
-if analyze_clicked:
-    raw = user_text.strip()
+    analyze_clicked_single = st.button("⚡ Analyse Text", use_container_width=True, key="btn_single")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    if not raw:
-        st.warning("Please enter some text before analysing.")
-        st.stop()
-
-    with st.spinner("Running pipeline…"):
-        # 1. Preprocess
-        cleaned = clean_text(raw)
-
-        # Model Selection
-        if "Advanced" in model_choice:
-            # 2. Sentiment
-            sent_result = predict_sentiment_hf(raw)
-            # 3. Toxicity
-            tox_result = predict_toxicity_hf(cleaned)
+    if analyze_clicked_single:
+        raw = user_text_single.strip()
+        if not raw:
+            st.warning("Please enter some text before analysing.")
         else:
-            # 2. Sentiment
-            sent_result = predict_sentiment_base(raw)
-            # 3. Toxicity
-            tox_result = predict_toxicity_base(cleaned)
+            with st.spinner("Running pipeline…"):
+                cleaned = clean_text(raw)
+                if "Advanced" in model_choice:
+                    sent_result = predict_sentiment_hf(raw)
+                    tox_result = predict_toxicity_hf(cleaned)
+                    module_labels = ["RoBERTa HF Sentiment", "Transformer Toxicity"]
+                else:
+                    sent_result = predict_sentiment_base(raw)
+                    tox_result = predict_toxicity_base(cleaned)
+                    module_labels = ["VADER Sentiment", "LogReg Classifier"]
+                insight_result = generate_insight(sent_result.label, tox_result.label)
+            
+            render_analysis_results(sent_result, tox_result, insight_result, cleaned, module_labels)
 
-        # 4. Insight
-        insight_result = generate_insight(sent_result.label, tox_result.label)
 
-    st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
+with tab_compare:
+    st.markdown('<div class="input-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-label" style="margin-top: 0.5rem;">Input text for comparison</div>', unsafe_allow_html=True)
 
-    # ── Results header ───────────────────────────────────────────────────────
-    st.markdown(
-        '<p class="card-label" style="margin-bottom:1rem;">Analysis results</p>',
-        unsafe_allow_html=True,
+    user_text_comp = st.text_area(
+        label="input_text_comp",
+        label_visibility="collapsed",
+        placeholder='e.g. "Your product is absolutely fantastic - just kidding, it\'s terrible."',
+        height=130,
+        key="user_input_comp",
     )
 
-    # ── Two metric cards ─────────────────────────────────────────────────────
-    col_sent, col_tox = st.columns(2, gap="medium")
+    compare_clicked = st.button("⚡ Compare Models", use_container_width=True, key="btn_compare")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # Sentiment card
-    sent_css = {
-        POSITIVE: "val-positive",
-        NEGATIVE: "val-negative",
-        NEUTRAL:  "val-neutral",
-    }[sent_result.label]
+    if compare_clicked:
+        raw = user_text_comp.strip()
+        if not raw:
+            st.warning("Please enter some text before analysing.")
+        else:
+            with st.spinner("Running both pipelines simultaneously…"):
+                cleaned = clean_text(raw)
+                
+                # Run Baseline
+                base_sent = predict_sentiment_base(raw)
+                base_tox = predict_toxicity_base(cleaned)
+                base_insight = generate_insight(base_sent.label, base_tox.label)
+                
+                # Run Transformers
+                hf_sent = predict_sentiment_hf(raw)
+                hf_tox = predict_toxicity_hf(cleaned)
+                hf_insight = generate_insight(hf_sent.label, hf_tox.label)
 
-    sent_bar_pct = int((sent_result.score + 1) / 2 * 100)   # [-1,1] → [0,100]
-    sent_sign    = "+" if sent_result.score >= 0 else ""
-
-    with col_sent:
-        st.markdown(
-            f"""
-            <div class="result-card">
-                <div class="result-card-label">😶 Sentiment</div>
-                <div class="result-value {sent_css}">{sent_result.label}</div>
-                <div class="result-score">compound {sent_sign}{sent_result.score:.4f}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.progress(sent_bar_pct)
-
-    # Toxicity card
-    tox_css = "val-toxic" if tox_result.label == TOXIC else "val-nontoxic"
-    tox_bar_pct = int(tox_result.probability * 100)
-
-    with col_tox:
-        st.markdown(
-            f"""
-            <div class="result-card">
-                <div class="result-card-label">☣️ Toxicity</div>
-                <div class="result-value {tox_css}">{tox_result.label}</div>
-                <div class="result-score">P(toxic) {tox_result.probability:.4f}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.progress(tox_bar_pct)
-
-    # ── Insight block ────────────────────────────────────────────────────────
-    st.markdown(
-        f"""
-        <div class="insight-block">
-            <span class="insight-tag">{insight_result.tag}</span>
-            <div class="insight-text">💡 {insight_result.insight}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # ── Cleaned text (expandable) ────────────────────────────────────────────
-    with st.expander("VIEW PREPROCESSED TEXT", expanded=False):
-        display_cleaned = cleaned if cleaned else "⚠️ Nothing remained after preprocessing."
-        st.markdown(
-            f'<div class="clean-text-box">{display_cleaned}</div>',
-            unsafe_allow_html=True,
-        )
-
-    # ── Raw score table (expandable) ─────────────────────────────────────────
-    with st.expander("VIEW RAW SCORES", expanded=False):
-        import pandas as pd
-        score_df = pd.DataFrame(
-            {
-                "Module": [
-                    "VADER Sentiment" if "Baseline" in model_choice else "RoBERTa HF Sentiment",
-                    "LogReg Classifier" if "Baseline" in model_choice else "Transformer Toxicity"
-                ],
-                "Predicted Label": [sent_result.label, tox_result.label],
-                "Score": [
-                    f"{sent_result.score:+.4f} (compound)",
-                    f"{tox_result.probability:.4f} P(toxic)",
-                ],
-            }
-        )
-        st.dataframe(score_df, use_container_width=True, hide_index=True)
+            col_left, col_right = st.columns(2, gap="large")
+            
+            with col_left:
+                st.markdown("<h3 style='text-align: center; color: #cdc9e8; font-family: Syne, sans-serif;'>Baseline Pipeline</h3>", unsafe_allow_html=True)
+                render_analysis_results(base_sent, base_tox, base_insight, cleaned, ["VADER Sentiment", "LogReg Classifier"])
+                
+            with col_right:
+                st.markdown("<h3 style='text-align: center; color: #cdc9e8; font-family: Syne, sans-serif;'>Transformer Pipeline</h3>", unsafe_allow_html=True)
+                render_analysis_results(hf_sent, hf_tox, hf_insight, cleaned, ["RoBERTa HF Sentiment", "Transformer Toxicity"])
 
 # ── Footer ───────────────────────────────────────────────────────────────────
 st.markdown(
-    '<div class="app-footer">NLP INSIGHT ENGINE &nbsp;·&nbsp; CUSTOMIZABLE ML & HF PIPELINE</div>',
+    '<div class="app-footer" style="margin-top: 3rem;">NLP INSIGHT ENGINE &nbsp;·&nbsp; CUSTOMIZABLE ML & HF PIPELINE</div>',
     unsafe_allow_html=True,
 )
