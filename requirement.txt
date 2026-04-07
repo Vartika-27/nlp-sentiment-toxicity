@@ -1,0 +1,12 @@
+pandas
+numpy
+scikit-learn
+nltk
+vaderSentiment
+textblob
+matplotlib
+seaborn
+streamlit
+transformers
+datasets
+torch
