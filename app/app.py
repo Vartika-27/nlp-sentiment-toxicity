@@ -21,12 +21,15 @@ import sys
 from pathlib import Path
 
 # Allow running from the project root where the sibling modules live
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from nlp_preprocessing_pipeline import clean_text
-from vader_sentiment import predict_sentiment, POSITIVE, NEGATIVE, NEUTRAL
-from toxicity_detection import predict_toxicity, train_model, TOXIC, NON_TOXIC
-from insight_generator import generate_insight
+from src.data.pipeline import clean_text
+from src.models.sentiment_baseline import predict_sentiment as predict_sentiment_base, POSITIVE, NEGATIVE, NEUTRAL
+from src.models.toxicity_baseline import predict_toxicity as predict_toxicity_base, train_model, TOXIC, NON_TOXIC
+from src.layers.combined_insight import generate_insight
+
+from src.models.sentiment_transformer import predict_sentiment as predict_sentiment_hf
+from src.models.toxicity_transformer import predict_toxicity as predict_toxicity_hf
 
 # ── Styles ──────────────────────────────────────────────────────────────────
 st.markdown(
@@ -291,12 +294,20 @@ st.markdown(
 
 # ── Input card ──────────────────────────────────────────────────────────────
 st.markdown('<div class="input-card">', unsafe_allow_html=True)
-st.markdown('<div class="card-label">Input text</div>', unsafe_allow_html=True)
+st.markdown('<div class="card-label">Model Engine</div>', unsafe_allow_html=True)
+model_choice = st.radio(
+    "Choose Prediction Backend:",
+    ["Baseline (VADER + LogReg)", "Advanced (Hugging Face Transformers)"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
+
+st.markdown('<div class="card-label" style="margin-top: 1rem;">Input text</div>', unsafe_allow_html=True)
 
 user_text = st.text_area(
     label="input_text",
     label_visibility="collapsed",
-    placeholder='e.g. "Your product is absolutely fantastic - just kidding, it\'s terrible."'
+    placeholder='e.g. "Your product is absolutely fantastic - just kidding, it\'s terrible."',
     height=130,
     key="user_input",
 )
@@ -316,11 +327,17 @@ if analyze_clicked:
         # 1. Preprocess
         cleaned = clean_text(raw)
 
-        # 2. Sentiment
-        sent_result = predict_sentiment(raw)   # run on raw for better VADER signal
-
-        # 3. Toxicity
-        tox_result = predict_toxicity(cleaned)
+        # Model Selection
+        if "Advanced" in model_choice:
+            # 2. Sentiment
+            sent_result = predict_sentiment_hf(raw)
+            # 3. Toxicity
+            tox_result = predict_toxicity_hf(cleaned)
+        else:
+            # 2. Sentiment
+            sent_result = predict_sentiment_base(raw)
+            # 3. Toxicity
+            tox_result = predict_toxicity_base(cleaned)
 
         # 4. Insight
         insight_result = generate_insight(sent_result.label, tox_result.label)
@@ -400,7 +417,10 @@ if analyze_clicked:
         import pandas as pd
         score_df = pd.DataFrame(
             {
-                "Module": ["VADER Sentiment", "Toxicity Classifier"],
+                "Module": [
+                    "VADER Sentiment" if "Baseline" in model_choice else "RoBERTa HF Sentiment",
+                    "LogReg Classifier" if "Baseline" in model_choice else "Transformer Toxicity"
+                ],
                 "Predicted Label": [sent_result.label, tox_result.label],
                 "Score": [
                     f"{sent_result.score:+.4f} (compound)",
@@ -412,6 +432,6 @@ if analyze_clicked:
 
 # ── Footer ───────────────────────────────────────────────────────────────────
 st.markdown(
-    '<div class="app-footer">NLP INSIGHT ENGINE &nbsp;·&nbsp; VADER + TF-IDF + WORDNET</div>',
+    '<div class="app-footer">NLP INSIGHT ENGINE &nbsp;·&nbsp; CUSTOMIZABLE ML & HF PIPELINE</div>',
     unsafe_allow_html=True,
 )
